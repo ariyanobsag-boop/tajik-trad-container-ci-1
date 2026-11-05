@@ -1,0 +1,268 @@
+name: TAJIK_TRAD Container Validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tajik-trad-container-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test read-only container
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    env:
+      IMAGE: tajik-trad-public-feed:ci
+      CONTAINER_NAME: tajik-trad-ci
+      BASE_URL: http://127.0.0.1:18080
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify source manifest
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          expected = {
+              "Dockerfile",
+              "README.md",
+              "public_feed_server.py",
+              "requirements.txt",
+              "xaus_readonly_api.py",
+              "xaus_readonly_feed.py",
+              ".dockerignore",
+              "BUILD_GUIDE_FA.md",
+              ".github/workflows/container-validation.yml",
+          }
+
+          manifest = Path("MANIFEST.sha256")
+
+          if not manifest.is_file():
+              raise SystemExit("FAIL: MANIFEST.sha256 missing")
+
+          entries = {}
+
+          for line in manifest.read_text(encoding="utf-8").splitlines():
+              if not line.strip():
+                  continue
+
+              parts = line.strip().split(None, 1)
+
+              if len(parts) != 2:
+                  raise SystemExit("FAIL: Invalid manifest line")
+
+              digest, filename = parts
+              filename = filename.strip()
+
+              if filename in entries:
+                  raise SystemExit("FAIL: Duplicate manifest entry")
+
+              entries[filename] = digest.lower()
+
+          if set(entries) != expected:
+              raise SystemExit("FAIL: Manifest file inventory mismatch")
+
+          for filename in sorted(expected):
+              path = Path(filename)
+
+              if not path.is_file():
+                  raise SystemExit(f"FAIL: Missing file: {filename}")
+
+              actual = hashlib.sha256(path.read_bytes()).hexdigest()
+
+              if actual != entries[filename]:
+                  raise SystemExit(f"FAIL: Hash mismatch: {filename}")
+
+              print(f"PASS: {filename} {actual}")
+
+          print("PASS: ALL SOURCE FILES VERIFIED")
+          PY
+
+      - name: Verify Docker engine
+        run: |
+          docker version
+          docker info
+
+      - name: Build container image
+        run: |
+          docker build --pull --tag "$IMAGE" .
+
+      - name: Verify image security configuration
+        shell: bash
+        run: |
+          IMAGE_USER="$(docker image inspect "$IMAGE" --format '{{.Config.User}}')"
+
+          if [ "$IMAGE_USER" != "appuser" ]; then
+            echo "FAIL: Expected non-root user appuser, found: $IMAGE_USER"
+            exit 1
+          fi
+
+          HEALTHCHECK="$(docker image inspect "$IMAGE" --format '{{json .Config.Healthcheck.Test}}')"
+
+          if [ "$HEALTHCHECK" = "null" ] || [ -z "$HEALTHCHECK" ]; then
+            echo "FAIL: Image healthcheck missing"
+            exit 1
+          fi
+
+          echo "PASS: Non-root image user"
+          echo "PASS: Image healthcheck configured"
+
+      - name: Run restricted container
+        run: |
+          docker run --detach \
+            --name "$CONTAINER_NAME" \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop=ALL \
+            --security-opt no-new-privileges:true \
+            --pids-limit 128 \
+            --memory 256m \
+            --cpus 1 \
+            --publish 18080:8080 \
+            --env PORT=8080 \
+            --health-interval=5s \
+            --health-timeout=3s \
+            --health-start-period=2s \
+            --health-retries=5 \
+            "$IMAGE"
+
+      - name: Wait for container health
+        shell: bash
+        run: |
+          HEALTH="starting"
+
+          for attempt in $(seq 1 30); do
+            STATE="$(docker inspect "$CONTAINER_NAME" --format '{{.State.Status}}')"
+            HEALTH="$(docker inspect "$CONTAINER_NAME" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}')"
+
+            echo "Attempt $attempt: state=$STATE health=$HEALTH"
+
+            if [ "$STATE" != "running" ]; then
+              docker logs "$CONTAINER_NAME"
+              exit 1
+            fi
+
+            if [ "$HEALTH" = "healthy" ]; then
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [ "$HEALTH" != "healthy" ]; then
+            docker inspect "$CONTAINER_NAME"
+            docker logs "$CONTAINER_NAME"
+            exit 1
+          fi
+
+          echo "PASS: CONTAINER HEALTHY"
+
+      - name: Test health endpoint
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --dump-header /tmp/tajik-health-headers.txt \
+            --output /tmp/tajik-health-body.json \
+            "$BASE_URL/health"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          body = json.loads(
+              Path("/tmp/tajik-health-body.json").read_text()
+          )
+
+          if body.get("status") != "online":
+              raise SystemExit("FAIL: Invalid health status")
+
+          if body.get("service") != "read-only-reference-feed":
+              raise SystemExit("FAIL: Invalid service identity")
+
+          headers = {}
+
+          for line in Path("/tmp/tajik-health-headers.txt").read_text().splitlines():
+              if ":" in line:
+                  key, value = line.split(":", 1)
+                  headers[key.strip().lower()] = value.strip()
+
+          required = {
+              "x-content-type-options": "nosniff",
+              "x-frame-options": "DENY",
+              "referrer-policy": "no-referrer",
+              "cache-control": "no-store",
+          }
+
+          for key, value in required.items():
+              if headers.get(key) != value:
+                  raise SystemExit(
+                      f"FAIL: Header {key}: {headers.get(key)}"
+                  )
+              print(f"PASS: {key}")
+
+          print("PASS: HEALTH RESPONSE")
+          PY
+
+      - name: Test disabled documentation routes
+        shell: bash
+        run: |
+          for path in /docs /redoc /openapi.json; do
+            STATUS="$(curl --silent --output /dev/null \
+              --write-out '%{http_code}' "$BASE_URL$path")"
+
+            echo "$path -> HTTP $STATUS"
+
+            if [ "$STATUS" != "404" ]; then
+              echo "FAIL: Documentation endpoint is not disabled"
+              exit 1
+            fi
+          done
+
+          echo "PASS: DOCUMENTATION ROUTES DISABLED"
+
+      - name: Test method and query restrictions
+        shell: bash
+        run: |
+          POST_STATUS="$(curl --silent --output /dev/null \
+            --write-out '%{http_code}' \
+            --request POST "$BASE_URL/api/v1/feed/spot")"
+
+          if [ "$POST_STATUS" != "405" ]; then
+            echo "FAIL: POST returned $POST_STATUS"
+            exit 1
+          fi
+
+          INVALID_HOURS_STATUS="$(curl --silent --output /dev/null \
+            --write-out '%{http_code}' \
+            "$BASE_URL/api/v1/feed/intraday?hours=0")"
+
+          if [ "$INVALID_HOURS_STATUS" != "422" ]; then
+            echo "FAIL: Invalid hours returned $INVALID_HOURS_STATUS"
+            exit 1
+          fi
+
+          echo "PASS: POST REJECTED"
+          echo "PASS: INVALID QUERY REJECTED"
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs "$CONTAINER_NAME" || true
+
+      - name: Remove test container
+        if: always()
+        run: |
+          docker rm --force "$CONTAINER_NAME" || true
