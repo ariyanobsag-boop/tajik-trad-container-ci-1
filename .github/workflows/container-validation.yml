@@ -122,52 +122,52 @@ jobs:
           echo "PASS: Non-root image user"
           echo "PASS: Image healthcheck configured"
 
-        - name: Run offline unit tests in final image
-          shell: bash
-          run: |
-            docker run --rm --interactive \
-              --network none \
-              --read-only \
-              --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
-              --cap-drop=ALL \
-              --security-opt no-new-privileges:true \
-              --pids-limit 64 \
-              --memory 256m \
-              --cpus 1 \
-              --mount "type=bind,source=$GITHUB_WORKSPACE/tests,target=/ci-tests,readonly" \
-              --entrypoint python \
-              "$IMAGE" - <<'PY'
-            from pathlib import Path
-            import unittest
+      - name: Run offline unit tests in final image
+        shell: bash
+        run: |
+          docker run --rm --interactive \
+            --network none \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --cap-drop=ALL \
+            --security-opt no-new-privileges:true \
+            --pids-limit 64 \
+            --memory 256m \
+            --cpus 1 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/tests,target=/ci-tests,readonly" \
+            --entrypoint python \
+            "$IMAGE" - <<'PY'
+          from pathlib import Path
+          import unittest
 
-            tests_dir = Path("/ci-tests")
-            required = {"test_api.py", "test_feed.py"}
-            available = {
-                path.name for path in tests_dir.glob("test_*.py")
-            }
+          tests_dir = Path("/ci-tests")
+          required = {"test_api.py", "test_feed.py"}
+          available = {
+              path.name for path in tests_dir.glob("test_*.py")
+          }
 
-            if available != required:
-                raise SystemExit(
-                    f"FAIL: Test inventory mismatch: {sorted(available)}"
-                )
+          if available != required:
+              raise SystemExit(
+                  f"FAIL: Test inventory mismatch: {sorted(available)}"
+              )
 
-            suite = unittest.defaultTestLoader.discover(
-                str(tests_dir),
-                pattern="test_*.py",
-            )
+          suite = unittest.defaultTestLoader.discover(
+              str(tests_dir),
+              pattern="test_*.py",
+          )
 
-            count = suite.countTestCases()
+          count = suite.countTestCases()
 
-            if count < 65:
-                raise SystemExit(
-                    f"FAIL: Expected at least 65 tests, discovered {count}."
-                )
+          if count < 65:
+              raise SystemExit(
+                  f"FAIL: Expected at least 65 tests, discovered {count}."
+              )
 
-            print(f"Discovered {count} offline unit tests.", flush=True)
+          print(f"Discovered {count} offline unit tests.", flush=True)
 
-            result = unittest.TextTestRunner(verbosity=2).run(suite)
-            raise SystemExit(0 if result.wasSuccessful() else 1)
-            PY
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          raise SystemExit(0 if result.wasSuccessful() else 1)
+          PY
 
       - name: Run restricted container
         run: |
