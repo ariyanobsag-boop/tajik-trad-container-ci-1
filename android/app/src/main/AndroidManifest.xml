@@ -6,7 +6,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="tajik_trad"
+        android:label="VORTEXTRAD"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">

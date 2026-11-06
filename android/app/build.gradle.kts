@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val configuredApiBaseUrl = (providers.gradleProperty("API_BASE_URL").orNull ?: "")
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+
 android {
     namespace = "com.xauusdpro.android"
 
@@ -17,6 +21,7 @@ android {
 
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "API_BASE_URL", "\"$configuredApiBaseUrl\"")
     }
 
     compileOptions {
@@ -41,6 +46,7 @@ dependencies {
     implementation(
         "com.squareup.retrofit2:retrofit:3.0.0"
     )
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:3.0.0")
 
     implementation(
         "org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0"
