@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: vortextrad-readonly-api
+    runtime: docker
+    plan: free
+    branch: stage104-feed-audit
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
