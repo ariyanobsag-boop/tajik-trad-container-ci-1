@@ -1,0 +1,11 @@
+{
+  "android_gradle_plugin": "9.4.1",
+  "gradle": "9.6.0",
+  "kotlin": "2.4.21",
+  "retrofit": "3.0.0",
+  "kotlinx_serialization_json": "1.11.0",
+  "compile_sdk": 36,
+  "target_sdk": 36,
+  "min_sdk": 26,
+  "java_target": 17
+}

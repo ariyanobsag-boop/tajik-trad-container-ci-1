@@ -1,0 +1,899 @@
+{
+  "project": "XAU/USD PRO",
+  "contract_version": "1.0.0",
+  "created_at": "2026-11-04T17:17:48.302507+00:00",
+  "base_url": "http://127.0.0.1:8765",
+  "mode": "LOCAL_READ_ONLY",
+  "source_identity": {
+    "requested_instrument": "XAU/USD",
+    "source_symbol": "GC=F",
+    "market_type": "FUTURES",
+    "identity_status": "CONFIRMED_FUTURES_SYMBOL",
+    "spot_identity_verified": false
+  },
+  "endpoints": {
+    "health": {
+      "method": "GET",
+      "path": "/health",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "candle_file_available": {
+            "type": "boolean"
+          },
+          "analysis_file_available": {
+            "type": "boolean"
+          },
+          "execution_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "candle_file_available",
+          "analysis_file_available",
+          "execution_enabled"
+        ]
+      }
+    },
+    "unified_status": {
+      "method": "GET",
+      "path": "/api/v1/unified/status",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "active_provider": {
+            "type": "string"
+          },
+          "source_symbol": {
+            "type": "string"
+          },
+          "requested_instrument": {
+            "type": "string"
+          },
+          "timeframe": {
+            "type": "string"
+          },
+          "market_type": {
+            "type": "string"
+          },
+          "identity_status": {
+            "type": "string"
+          },
+          "spot_identity_verified": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "live_connection": {
+            "type": "boolean"
+          },
+          "broker_connection": {
+            "type": "boolean"
+          },
+          "automatic_execution": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "service",
+          "active_provider",
+          "source_symbol",
+          "requested_instrument",
+          "timeframe",
+          "market_type",
+          "identity_status",
+          "spot_identity_verified",
+          "mode",
+          "live_connection",
+          "broker_connection",
+          "automatic_execution"
+        ]
+      }
+    },
+    "unified_latest": {
+      "method": "GET",
+      "path": "/api/v1/unified/latest",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "timeframe": {
+            "type": "string"
+          },
+          "open": {
+            "type": "number"
+          },
+          "high": {
+            "type": "number"
+          },
+          "low": {
+            "type": "number"
+          },
+          "close": {
+            "type": "number"
+          },
+          "volume": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick_volume": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "source_symbol": {
+                "type": "string"
+              },
+              "requested_instrument": {
+                "type": "string"
+              },
+              "market_type": {
+                "type": "string"
+              },
+              "identity_status": {
+                "type": "string"
+              },
+              "spot_identity_verified": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "provider",
+              "source_symbol",
+              "requested_instrument",
+              "market_type",
+              "identity_status",
+              "spot_identity_verified"
+            ]
+          }
+        },
+        "required": [
+          "timestamp",
+          "timeframe",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volume",
+          "tick_volume",
+          "source"
+        ]
+      }
+    },
+    "unified_candles": {
+      "method": "GET",
+      "path": "/api/v1/unified/candles?limit=5",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "provider_status": {
+            "type": "object",
+            "properties": {
+              "service": {
+                "type": "string"
+              },
+              "active_provider": {
+                "type": "string"
+              },
+              "source_symbol": {
+                "type": "string"
+              },
+              "requested_instrument": {
+                "type": "string"
+              },
+              "timeframe": {
+                "type": "string"
+              },
+              "market_type": {
+                "type": "string"
+              },
+              "identity_status": {
+                "type": "string"
+              },
+              "spot_identity_verified": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "live_connection": {
+                "type": "boolean"
+              },
+              "broker_connection": {
+                "type": "boolean"
+              },
+              "automatic_execution": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "service",
+              "active_provider",
+              "source_symbol",
+              "requested_instrument",
+              "timeframe",
+              "market_type",
+              "identity_status",
+              "spot_identity_verified",
+              "mode",
+              "live_connection",
+              "broker_connection",
+              "automatic_execution"
+            ]
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "candles_received": {
+                "type": "integer"
+              },
+              "duplicate_timestamps": {
+                "type": "integer"
+              },
+              "out_of_order_intervals": {
+                "type": "integer"
+              },
+              "gaps_over_expected": {
+                "type": "integer"
+              },
+              "non_standard_intervals": {
+                "type": "integer"
+              },
+              "expected_interval_seconds": {
+                "type": "integer"
+              },
+              "strictly_ordered": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "candles_received",
+              "duplicate_timestamps",
+              "out_of_order_intervals",
+              "gaps_over_expected",
+              "non_standard_intervals",
+              "expected_interval_seconds",
+              "strictly_ordered"
+            ]
+          },
+          "candles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": {
+                  "type": "string"
+                },
+                "timeframe": {
+                  "type": "string"
+                },
+                "open": {
+                  "type": "number"
+                },
+                "high": {
+                  "type": "number"
+                },
+                "low": {
+                  "type": "number"
+                },
+                "close": {
+                  "type": "number"
+                },
+                "volume": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tick_volume": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "source_symbol": {
+                      "type": "string"
+                    },
+                    "requested_instrument": {
+                      "type": "string"
+                    },
+                    "market_type": {
+                      "type": "string"
+                    },
+                    "identity_status": {
+                      "type": "string"
+                    },
+                    "spot_identity_verified": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "source_symbol",
+                    "requested_instrument",
+                    "market_type",
+                    "identity_status",
+                    "spot_identity_verified"
+                  ]
+                }
+              },
+              "required": [
+                "timestamp",
+                "timeframe",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "tick_volume",
+                "source"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "provider_status",
+          "summary",
+          "candles"
+        ]
+      }
+    },
+    "unified_audit": {
+      "method": "GET",
+      "path": "/api/v1/unified/audit",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "provider_status": {
+            "type": "object",
+            "properties": {
+              "service": {
+                "type": "string"
+              },
+              "active_provider": {
+                "type": "string"
+              },
+              "source_symbol": {
+                "type": "string"
+              },
+              "requested_instrument": {
+                "type": "string"
+              },
+              "timeframe": {
+                "type": "string"
+              },
+              "market_type": {
+                "type": "string"
+              },
+              "identity_status": {
+                "type": "string"
+              },
+              "spot_identity_verified": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "live_connection": {
+                "type": "boolean"
+              },
+              "broker_connection": {
+                "type": "boolean"
+              },
+              "automatic_execution": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "service",
+              "active_provider",
+              "source_symbol",
+              "requested_instrument",
+              "timeframe",
+              "market_type",
+              "identity_status",
+              "spot_identity_verified",
+              "mode",
+              "live_connection",
+              "broker_connection",
+              "automatic_execution"
+            ]
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "candles_received": {
+                "type": "integer"
+              },
+              "duplicate_timestamps": {
+                "type": "integer"
+              },
+              "out_of_order_intervals": {
+                "type": "integer"
+              },
+              "gaps_over_expected": {
+                "type": "integer"
+              },
+              "non_standard_intervals": {
+                "type": "integer"
+              },
+              "expected_interval_seconds": {
+                "type": "integer"
+              },
+              "strictly_ordered": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "candles_received",
+              "duplicate_timestamps",
+              "out_of_order_intervals",
+              "gaps_over_expected",
+              "non_standard_intervals",
+              "expected_interval_seconds",
+              "strictly_ordered"
+            ]
+          },
+          "candles_received": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider_status",
+          "summary",
+          "candles_received"
+        ]
+      }
+    },
+    "summary": {
+      "method": "GET",
+      "path": "/api/v1/summary",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "instrument": {
+            "type": "string"
+          },
+          "data_source": {
+            "type": "string"
+          },
+          "statistics": {
+            "type": "object",
+            "properties": {
+              "structure_candidate_detections": {
+                "type": "integer"
+              },
+              "confirmed_breakouts": {
+                "type": "integer"
+              },
+              "four_usd_warnings": {
+                "type": "integer"
+              },
+              "tp_2_5_reached": {
+                "type": "integer"
+              },
+              "sl_10_boundary_reached": {
+                "type": "integer"
+              },
+              "ambiguous_outcomes": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "structure_candidate_detections",
+              "confirmed_breakouts",
+              "four_usd_warnings",
+              "tp_2_5_reached",
+              "sl_10_boundary_reached",
+              "ambiguous_outcomes"
+            ]
+          },
+          "structure_candidates": {
+            "type": "object",
+            "properties": {
+              "DESCENDING_RANGE": {
+                "type": "integer"
+              },
+              "ASCENDING_RANGE": {
+                "type": "integer"
+              },
+              "DESCENDING_TRIANGLE": {
+                "type": "integer"
+              },
+              "SYMMETRICAL_TRIANGLE": {
+                "type": "integer"
+              },
+              "ASCENDING_TRIANGLE": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "DESCENDING_RANGE",
+              "ASCENDING_RANGE",
+              "DESCENDING_TRIANGLE",
+              "SYMMETRICAL_TRIANGLE",
+              "ASCENDING_TRIANGLE"
+            ]
+          }
+        },
+        "required": [
+          "instrument",
+          "data_source",
+          "statistics",
+          "structure_candidates"
+        ]
+      }
+    },
+    "signals": {
+      "method": "GET",
+      "path": "/api/v1/signals",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "signal_id": {
+                  "type": "integer"
+                },
+                "structure_type": {
+                  "type": "string"
+                },
+                "structure_start_time": {
+                  "type": "string"
+                },
+                "structure_end_time": {
+                  "type": "string"
+                },
+                "structure_window": {
+                  "type": "integer"
+                },
+                "upper_touches": {
+                  "type": "integer"
+                },
+                "lower_touches": {
+                  "type": "integer"
+                },
+                "width_start": {
+                  "type": "number"
+                },
+                "width_end": {
+                  "type": "number"
+                },
+                "upper_slope": {
+                  "type": "number"
+                },
+                "lower_slope": {
+                  "type": "number"
+                },
+                "breakout_time": {
+                  "type": "string"
+                },
+                "confirmation_time": {
+                  "type": "string"
+                },
+                "direction": {
+                  "type": "string"
+                },
+                "entry_price": {
+                  "type": "number"
+                },
+                "quality_score": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "signal_id",
+                "structure_type",
+                "structure_start_time",
+                "structure_end_time",
+                "structure_window",
+                "upper_touches",
+                "lower_touches",
+                "width_start",
+                "width_end",
+                "upper_slope",
+                "lower_slope",
+                "breakout_time",
+                "confirmation_time",
+                "direction",
+                "entry_price",
+                "quality_score"
+              ]
+            }
+          }
+        },
+        "required": [
+          "count",
+          "items"
+        ]
+      }
+    },
+    "signal_detail": {
+      "method": "GET",
+      "path": "/api/v1/signals/1",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "signal_id": {
+            "type": "string"
+          },
+          "signal": {
+            "type": "object",
+            "properties": {
+              "signal_id": {
+                "type": "integer"
+              },
+              "structure_type": {
+                "type": "string"
+              },
+              "structure_start_time": {
+                "type": "string"
+              },
+              "structure_end_time": {
+                "type": "string"
+              },
+              "structure_window": {
+                "type": "integer"
+              },
+              "upper_touches": {
+                "type": "integer"
+              },
+              "lower_touches": {
+                "type": "integer"
+              },
+              "width_start": {
+                "type": "number"
+              },
+              "width_end": {
+                "type": "number"
+              },
+              "upper_slope": {
+                "type": "number"
+              },
+              "lower_slope": {
+                "type": "number"
+              },
+              "breakout_time": {
+                "type": "string"
+              },
+              "confirmation_time": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "entry_price": {
+                "type": "number"
+              },
+              "quality_score": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "signal_id",
+              "structure_type",
+              "structure_start_time",
+              "structure_end_time",
+              "structure_window",
+              "upper_touches",
+              "lower_touches",
+              "width_start",
+              "width_end",
+              "upper_slope",
+              "lower_slope",
+              "breakout_time",
+              "confirmation_time",
+              "direction",
+              "entry_price",
+              "quality_score"
+            ]
+          },
+          "monitor": {
+            "type": "object",
+            "properties": {
+              "signal_id": {
+                "type": "integer"
+              },
+              "structure_type": {
+                "type": "string"
+              },
+              "confirmation_time": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "entry_price": {
+                "type": "number"
+              },
+              "tp_price": {
+                "type": "number"
+              },
+              "warning_price": {
+                "type": "number"
+              },
+              "sl_price": {
+                "type": "number"
+              },
+              "warning_4_triggered": {
+                "type": "boolean"
+              },
+              "warning_time": {
+                "type": "string"
+              },
+              "warning_bar": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tp_reached": {
+                "type": "boolean"
+              },
+              "tp_time": {
+                "type": "string"
+              },
+              "tp_bar": {
+                "type": "number"
+              },
+              "sl_10_reached": {
+                "type": "boolean"
+              },
+              "sl_time": {
+                "type": "string"
+              },
+              "sl_bar": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "warning_tp_same_candle": {
+                "type": "boolean"
+              },
+              "warning_sl_same_candle": {
+                "type": "boolean"
+              },
+              "final_status": {
+                "type": "string"
+              },
+              "candles_checked": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "signal_id",
+              "structure_type",
+              "confirmation_time",
+              "direction",
+              "entry_price",
+              "tp_price",
+              "warning_price",
+              "sl_price",
+              "warning_4_triggered",
+              "warning_time",
+              "warning_bar",
+              "tp_reached",
+              "tp_time",
+              "tp_bar",
+              "sl_10_reached",
+              "sl_time",
+              "sl_bar",
+              "warning_tp_same_candle",
+              "warning_sl_same_candle",
+              "final_status",
+              "candles_checked"
+            ]
+          },
+          "execution_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "signal_id",
+          "signal",
+          "monitor",
+          "execution_enabled"
+        ]
+      }
+    },
+    "alerts": {
+      "method": "GET",
+      "path": "/api/v1/alerts",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "alert_type": {
+                  "type": "string"
+                },
+                "signal_id": {
+                  "type": "integer"
+                },
+                "structure_type": {
+                  "type": "string"
+                },
+                "direction": {
+                  "type": "string"
+                },
+                "entry_price": {
+                  "type": "number"
+                },
+                "warning_price": {
+                  "type": "number"
+                },
+                "alert_time": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "alert_type",
+                "signal_id",
+                "structure_type",
+                "direction",
+                "entry_price",
+                "warning_price",
+                "alert_time",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "count",
+          "items"
+        ]
+      }
+    }
+  },
+  "safety": {
+    "live_data_enabled": false,
+    "broker_connection_enabled": false,
+    "automatic_execution_enabled": false
+  }
+}
