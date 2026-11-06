@@ -19,3 +19,8 @@ venv/
 *.zip
 MANIFEST.sha256
 BUILD_GUIDE_FA.md
+
+# Test sources and generated reports
+tests/
+.coverage*
+htmlcov/

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+import json
 import math
 import requests
 
@@ -37,6 +38,9 @@ SPOT_MAX_AGE_SECONDS = 180
 INTRADAY_MAX_AGE_SECONDS = 600
 
 REQUEST_TIMEOUT = (5, 12)
+
+MAX_RESPONSE_BYTES = 1_048_576
+MAX_INTRADAY_POINTS = 1500
 
 USER_AGENT = "TAJIK_TRAD-ReadOnly-Educational-Feed/1.0"
 
@@ -182,11 +186,12 @@ def _get_json(
     url: str,
     params: dict[str, Any],
 ) -> dict[str, Any]:
-
     headers = {
         "Accept": "application/json",
         "User-Agent": USER_AGENT,
     }
+
+    response = None
 
     try:
         response = requests.get(
@@ -194,17 +199,35 @@ def _get_json(
             params=params,
             headers=headers,
             timeout=REQUEST_TIMEOUT,
+            stream=True,
         )
+
+        body = bytearray()
+
+        for chunk in response.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+
+            if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                raise FeedRequestError(
+                    "Provider response exceeded the maximum allowed size."
+                )
+
+            body.extend(chunk)
 
     except requests.RequestException as exc:
         raise FeedRequestError(
             "HTTP request failed: " + type(exc).__name__
         ) from exc
 
-    try:
-        payload = response.json()
+    finally:
+        if response is not None:
+            response.close()
 
-    except ValueError as exc:
+    try:
+        payload = json.loads(body)
+
+    except (ValueError, TypeError) as exc:
         raise FeedRequestError(
             "Provider returned invalid JSON."
         ) from exc
@@ -324,6 +347,11 @@ def normalize_intraday(
 
     if not isinstance(raw_points, list):
         raise FeedDataError("Intraday points must be a list.")
+
+    if len(raw_points) > MAX_INTRADAY_POINTS:
+        raise FeedDataError(
+            "Intraday response exceeds the maximum point count."
+        )
 
     provider_status = str(
         state.get("status", "unknown")
@@ -498,12 +526,7 @@ def fetch_intraday(hours: int = 6) -> dict[str, Any]:
     The provider accepts hours from 1 through 48.
     """
 
-    if isinstance(hours, bool):
-        raise ValueError("hours must be an integer from 1 to 48.")
-
-    try:
-        hours = int(hours)
-    except (ValueError, TypeError):
+    if isinstance(hours, bool) or not isinstance(hours, int):
         raise ValueError("hours must be an integer from 1 to 48.")
 
     if not 1 <= hours <= 48:
