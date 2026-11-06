@@ -33,18 +33,26 @@ jobs:
       - name: Install pinned pip-tools
         run: python -m pip install --disable-pip-version-check --no-input pip-tools==7.6.2
 
+      - name: Preserve committed dependency lock
+        run: cp requirements.lock /tmp/committed-requirements.lock
+
       - name: Generate hashed dependency lock
         run: |
           pip-compile --generate-hashes --resolver=backtracking --strip-extras --output-file=requirements.lock requirements.txt
           python - <<'PY'
           from pathlib import Path
-          lock = Path("requirements.lock")
-          text = lock.read_text(encoding="utf-8")
+          committed = Path("/tmp/committed-requirements.lock")
+          generated = Path("requirements.lock")
+          if not committed.is_file() or not generated.is_file():
+              raise SystemExit("FAIL: Committed or generated lock file missing")
+          text = generated.read_text(encoding="utf-8")
           if not text.strip():
-              raise SystemExit("FAIL: requirements.lock is empty")
+              raise SystemExit("FAIL: Generated requirements.lock is empty")
           if "--hash=sha256:" not in text:
               raise SystemExit("FAIL: No SHA256 hashes found")
-          print(f"PASS: requirements.lock generated ({lock.stat().st_size} bytes)")
+          if committed.read_bytes() != generated.read_bytes():
+              raise SystemExit("FAIL: Committed lock differs from regenerated lock")
+          print(f"PASS: Committed lock matches regenerated lock ({committed.stat().st_size} bytes)")
           PY
 
       - name: Upload dependency lock artifact
@@ -83,6 +91,7 @@ jobs:
               "README.md",
               "public_feed_server.py",
               "requirements.txt",
+              "requirements.lock",
               "xaus_readonly_api.py",
               "xaus_readonly_feed.py",
               ".dockerignore",

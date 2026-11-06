@@ -7,9 +7,9 @@ ENV PORT=8080
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements.lock .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 
 COPY public_feed_server.py .
 COPY xaus_readonly_api.py .
