@@ -209,9 +209,9 @@ jobs:
 
           count = suite.countTestCases()
 
-          if count < 65:
+          if count < 66:
               raise SystemExit(
-                  f"FAIL: Expected at least 65 tests, discovered {count}."
+                  f"FAIL: Expected at least 66 tests, discovered {count}."
               )
 
           print(f"Discovered {count} offline unit tests.", flush=True)

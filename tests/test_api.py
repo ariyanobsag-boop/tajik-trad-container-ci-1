@@ -826,5 +826,262 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.headers["Pragma"], "no-cache")
 
 
+class TestPublicHTTPIntegration(unittest.TestCase):
+    def test_public_routes_over_real_http_in_isolated_process(self):
+        import json
+        import subprocess
+        import urllib.error
+        import urllib.request
+
+        child_script = r"""
+import socket
+import sys
+import threading
+import time
+from datetime import datetime, timezone
+
+import uvicorn
+import xaus_readonly_api as api
+from public_feed_server import app
+
+
+def make_spot():
+    now = datetime.now(timezone.utc)
+    stamp = now.isoformat()
+    return {
+        "provider": "xaus.com",
+        "instrument": "XAU/USD",
+        "data_type": "spot_reference",
+        "price_usd_per_troy_ounce": 4000.0,
+        "source_timestamp": stamp,
+        "received_at": stamp,
+        "source_age_seconds": 0.0,
+        "provider_status": "fresh",
+        "provider_source": "isolated-http-test",
+        "freshness_status": "fresh",
+        "stale_flag": False,
+        "chart_type": "single_reference_value",
+        "notice": "Synthetic reference data for offline HTTP testing.",
+    }
+
+
+def make_intraday(hours=6):
+    epoch_now = int(time.time())
+    epochs = [epoch_now - 60, epoch_now]
+    points = []
+
+    for epoch, price in zip(epochs, (3999.0, 4000.0)):
+        point_time = datetime.fromtimestamp(epoch, tz=timezone.utc)
+        points.append({
+            "epoch_seconds": epoch,
+            "t": point_time.isoformat(),
+            "p": price,
+        })
+
+    latest = points[-1]["t"]
+    now = datetime.now(timezone.utc)
+
+    return {
+        "provider": "xaus.com",
+        "instrument": "XAU/USD",
+        "data_type": "sampled_spot_price_points",
+        "chart_type": "line",
+        "points": points,
+        "point_count": 2,
+        "source_point_count": 2,
+        "invalid_point_count": 0,
+        "duplicate_point_count": 0,
+        "future_point_count": 0,
+        "source_order_valid": True,
+        "quality_warnings": [],
+        "source_coverage_seconds": 60.0,
+        "actual_coverage_seconds": 60.0,
+        "latest_source_timestamp": latest,
+        "received_at": now.isoformat(),
+        "source_age_seconds": 0.0,
+        "provider_status": "fresh",
+        "provider_source": "isolated-http-test",
+        "freshness_status": "fresh",
+        "notice": "Synthetic sampled points for offline HTTP testing.",
+    }
+
+
+api.feed.fetch_spot = make_spot
+api.feed.fetch_intraday = make_intraday
+api.clear_readonly_cache()
+
+listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+listener.bind(("127.0.0.1", 0))
+listener.listen(128)
+port = listener.getsockname()[1]
+
+server = uvicorn.Server(
+    uvicorn.Config(
+        app,
+        host="127.0.0.1",
+        port=port,
+        log_level="critical",
+        access_log=False,
+        lifespan="off",
+    )
+)
+
+thread = threading.Thread(
+    target=server.run,
+    kwargs={"sockets": [listener]},
+    daemon=True,
+)
+thread.start()
+
+deadline = time.monotonic() + 10
+while (
+    not server.started
+    and thread.is_alive()
+    and time.monotonic() < deadline
+):
+    time.sleep(0.025)
+
+if not server.started:
+    server.should_exit = True
+    thread.join(timeout=2)
+    listener.close()
+    raise RuntimeError("Uvicorn server did not become ready.")
+
+print(f"READY {port}", flush=True)
+
+try:
+    sys.stdin.readline()
+finally:
+    server.should_exit = True
+    thread.join(timeout=5)
+    listener.close()
+    if thread.is_alive():
+        raise RuntimeError("HTTP test server did not stop cleanly.")
+"""
+
+        process = subprocess.Popen(
+            [sys.executable, "-c", child_script],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+
+        try:
+            ready_line = process.stdout.readline().strip()
+
+            if not ready_line.startswith("READY "):
+                diagnostic = process.stderr.read()
+                self.fail(
+                    "Isolated HTTP server failed to start. "
+                    + diagnostic[-4000:]
+                )
+
+            port = int(ready_line.split()[1])
+            base_url = f"http://127.0.0.1:{port}"
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({})
+            )
+
+            def fetch(path, method="GET"):
+                request = urllib.request.Request(
+                    base_url + path,
+                    method=method,
+                )
+                try:
+                    with opener.open(request, timeout=5) as response:
+                        return (
+                            response.status,
+                            response.headers,
+                            response.read(),
+                        )
+                except urllib.error.HTTPError as error:
+                    return (
+                        error.code,
+                        error.headers,
+                        error.read(),
+                    )
+
+            status, headers, body = fetch("/health")
+            self.assertEqual(status, 200, body.decode(errors="replace"))
+            self.assertEqual(
+                json.loads(body),
+                {
+                    "status": "online",
+                    "service": "read-only-reference-feed",
+                },
+            )
+
+            self.assertEqual(
+                headers.get("X-Content-Type-Options"), "nosniff"
+            )
+            self.assertEqual(headers.get("X-Frame-Options"), "DENY")
+            self.assertEqual(
+                headers.get("Referrer-Policy"), "no-referrer"
+            )
+            self.assertEqual(headers.get("Cache-Control"), "no-store")
+
+            status, spot_headers, body = fetch(
+                "/api/v1/feed/spot"
+            )
+            self.assertEqual(status, 200, body.decode(errors="replace"))
+            spot = json.loads(body)
+            self.assertEqual(spot["data_type"], "spot_reference")
+            self.assertEqual(
+                spot["price_usd_per_troy_ounce"], 4000.0
+            )
+            self.assertEqual(
+                spot_headers.get("Pragma"), "no-cache"
+            )
+            self.assertEqual(spot_headers.get("Cache-Control"), "no-store")
+
+            status, _, body = fetch(
+                "/api/v1/feed/intraday?hours=6"
+            )
+            self.assertEqual(status, 200, body.decode(errors="replace"))
+            intraday = json.loads(body)
+            self.assertEqual(
+                intraday["data_type"], "sampled_spot_price_points"
+            )
+            self.assertEqual(intraday["point_count"], 2)
+            self.assertEqual(
+                intraday["actual_coverage_seconds"], 60.0
+            )
+
+            status, _, _ = fetch(
+                "/api/v1/feed/spot", method="POST"
+            )
+            self.assertEqual(status, 405)
+
+            status, _, _ = fetch(
+                "/api/v1/feed/intraday?hours=0"
+            )
+            self.assertEqual(status, 422)
+
+            status, _, _ = fetch("/docs")
+            self.assertEqual(status, 404)
+
+            status, _, _ = fetch("/openapi.json")
+            self.assertEqual(status, 404)
+
+        finally:
+            if process.poll() is None:
+                try:
+                    process.stdin.write("\n")
+                    process.stdin.flush()
+                    process.wait(timeout=5)
+                except (BrokenPipeError, OSError, subprocess.TimeoutExpired):
+                    process.terminate()
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=3)
+
+            process.stdin.close()
+            process.stdout.close()
+            process.stderr.close()
 if __name__ == "__main__":
     unittest.main(verbosity=2)
